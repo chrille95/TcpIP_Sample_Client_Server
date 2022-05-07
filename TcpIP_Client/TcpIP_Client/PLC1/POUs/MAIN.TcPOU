@@ -6,7 +6,9 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[PRG_PythonServerConnect();]]></ST>
+      <ST><![CDATA[
+// TcpIp sample PRG for client to server
+PRG_TcpIP_ClientServer();]]></ST>
     </Implementation>
   </POU>
 </TcPlcObject>

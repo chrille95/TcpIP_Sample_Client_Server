@@ -23,7 +23,7 @@
     <Compile Include="POUs\MAIN.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\PRG_PythonServerConnect.TcPOU">
+    <Compile Include="POUs\PRG_TcpIP_ClientServer.TcPOU">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

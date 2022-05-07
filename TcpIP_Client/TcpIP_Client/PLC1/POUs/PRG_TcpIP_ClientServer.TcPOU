@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="PRG_TcpIP_ClientServer" Id="{a65e1b9a-9e9c-4da0-a919-b3b2081c154a}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM PRG_TcpIP_ClientServer
+VAR
+	// State
+	bConnect 			: BOOL;
+	bSend 				: BOOL;
+	bReceive 			: BOOL;
+	bClose 				: BOOL;
+	nConnect			: INT;
+	nSend				: INT;
+	nReceive			: INT;
+	nClose				: INT;
+	eStateMachine		: (INIT, CONNECT, PREP_SEND, SEND, PREP_RECEIVE, RECEIVE, CLOSE);
+	
+	// Socket
+	hSocket 			: T_HSOCKET;
+	
+	// FB
+	fbSocketConnect 	: FB_SocketConnect;
+	fbSocketClose 		: FB_SocketClose;
+	fbSocketSend 		: FB_SocketSend;
+	fbSocketReceive 	: FB_SocketReceive;
+	
+	// Host
+	sRemoteHost			: STRING := '127.0.0.1';
+	nPort				: UDINT := 65434;
+
+	// Misc
+	fbTimer 			: TON := (PT := T#5S);
+	tRefreshTime 		: TIME := T#100MS;
+	nSendBytes 			: ARRAY[0..1023] OF BYTE;
+	nReceiveByte		: ARRAY[0..1023] OF BYTE;
+	sReceiveString		: STRING;
+	sSendString 		: STRING;
+	nSendLen 			: UDINT;
+	stReceiveString     : STRING;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// State machine
+CASE eStateMachine OF
+	
+	INIT:
+		IF bConnect THEN
+			bConnect := FALSE;
+			eStateMachine := CONNECT;
+		END_IF
+	
+	CONNECT:
+		// Establish the connection to Python Server
+		fbSocketConnect(sRemoteHost := sRemoteHost, 
+						nRemotePort := nPort,
+						bExecute	:= TRUE,
+						hSocket		=> hSocket,
+						tTimeout	:= T#5S
+		);
+		IF NOT(fbSocketConnect.bBusy) AND NOT(fbSocketConnect.bError) THEN
+			nConnect := nConnect + 1;
+			fbSocketConnect(bExecute := FALSE);
+			eStateMachine := PREP_SEND;
+		END_IF
+	
+	PREP_SEND: 
+		IF bSend THEN
+			bSend := FALSE;
+			eStateMachine := SEND;
+		END_IF
+	
+	SEND:
+		// Send message to Python Server & configure the Sending message
+		sSendString := 'Hello world FROM TwinCAT!';
+		nSendLen := INT_TO_UDINT(LEN(sSendString));
+		// Copy string of chars into byte array
+		MEMCPY(destAddr := ADR(nSendBytes),
+			   srcAddr  := ADR(sSendString),
+			   n		:= nSendLen
+		);
+		// Function Block
+		fbSocketSend(hSocket  := hSocket,
+					 cbLen    := nSendLen,
+					 pSrc     := ADR(nSendLen),
+					 bExecute := TRUE,
+					 tTimeout := T#5S
+		);
+		IF NOT(fbSocketSend.bBusy) AND NOT(fbSocketSend.bError) THEN
+			nSend := nSend + 1;
+			fbSocketSend(bExecute := FALSE);
+			eStateMachine := PREP_RECEIVE;
+		ELSIF bClose OR fbSocketSend.bError THEN
+			bClose := FALSE;
+			fbSocketSend(bExecute := FALSE);
+			eStateMachine := CLOSE;
+		END_IF
+
+	PREP_RECEIVE:
+		IF bReceive THEN
+			bReceive := FALSE;
+			eStateMachine := RECEIVE;
+		END_IF
+	
+	RECEIVE:
+		// Refresh function block
+		fbTimer(IN:= NOT fbTimer.Q);
+		IF fbTimer.Q THEN
+			fbSocketReceive(bExecute := FALSE);
+		END_IF
+	
+		// Function Block
+		fbSocketReceive(hSocket  := hSocket,
+						cbLen    := SIZEOF(nReceiveByte),
+						pDest    := ADR(nReceiveByte),
+						bExecute := TRUE,
+						tTimeout := T#5S
+		);
+		// Await received string
+		IF fbSocketReceive.nRecBytes > 0 AND NOT(fbSocketReceive.bBusy) AND NOT(fbSocketReceive.bError) THEN
+			// Copy byte array into string of chars
+			MEMCPY(destAddr := ADR(sReceiveString),
+				   srcAddr  := ADR(nReceiveByte), 
+				   n        := fbSocketReceive.nRecBytes
+			);	
+			nReceive := nReceive + 1;
+			fbSocketReceive(bExecute := FALSE);
+			eStateMachine := CLOSE;
+		ELSIF bClose OR fbSocketReceive.bError THEN
+			bClose := FALSE;
+			fbSocketReceive(bExecute := FALSE);
+			eStateMachine := CLOSE;
+		END_IF
+	
+	CLOSE:
+		//Close the Connection by Function Block
+		fbSocketClose(hSocket := hSocket, bExecute := TRUE);
+		IF NOT(fbSocketClose.bBusy) AND NOT(fbSocketClose.bError) THEN
+			nClose := nClose + 1;
+			fbSocketClose(bExecute := FALSE);
+			eStateMachine := INIT;
+		END_IF
+
+END_CASE]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
