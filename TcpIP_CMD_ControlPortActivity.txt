@@ -1,0 +1,3 @@
+netstat -ano|findstr port 
+
+tskill session 

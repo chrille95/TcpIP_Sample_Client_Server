@@ -3,6 +3,15 @@
 #
 # Recommended: VisualStudio.gitignore
 
+#TC3 HMI
+**/.engineering_servers/
+**/liveview_*
+**/*.cache
+**/*.db-shm
+**/*.db-wal
+**/*.pid
+**/tchmipublish.journal.json
+
 # TwinCAT files
 *.tpy
 *.tclrs
