@@ -12,6 +12,7 @@ VAR
 	nSend				: INT;
 	nReceive			: INT;
 	nClose				: INT;
+	nRetryReceive 	    : INT;
 	eStateMachine		: (INIT, CONNECT, PREP_SEND, SEND, PREP_RECEIVE, RECEIVE, CLOSE);
 	
 	// Socket
@@ -24,12 +25,13 @@ VAR
 	fbSocketReceive 	: FB_SocketReceive;
 	
 	// Host
-	sRemoteHost			: STRING := '127.0.0.1';
+	sRemoteHost			: STRING := '169.254.6.66';
+	sSrvNetId			: T_AmsNetID := '192.168.1.150.1.1';
 	nPort				: UDINT := 65434;
 
 	// Misc
 	fbTimer 			: TON := (PT := T#5S);
-	tRefreshTime 		: TIME := T#100MS;
+	tRefreshTimer		: TIME := T#100MS;
 	nSendBytes 			: ARRAY[0..1023] OF BYTE;
 	nReceiveByte		: ARRAY[0..1023] OF BYTE;
 	sReceiveString		: STRING;
@@ -51,7 +53,8 @@ CASE eStateMachine OF
 	
 	CONNECT:
 		// Establish the connection to Python Server
-		fbSocketConnect(sRemoteHost := sRemoteHost, 
+		fbSocketConnect(sSrvNetId	:= sSrvNetId,
+						sRemoteHost := sRemoteHost, 
 						nRemotePort := nPort,
 						bExecute	:= TRUE,
 						hSocket		=> hSocket,
@@ -79,11 +82,12 @@ CASE eStateMachine OF
 			   n		:= nSendLen
 		);
 		// Function Block
-		fbSocketSend(hSocket  := hSocket,
-					 cbLen    := nSendLen,
-					 pSrc     := ADR(nSendLen),
-					 bExecute := TRUE,
-					 tTimeout := T#5S
+		fbSocketSend(sSrvNetId := sSrvNetId,
+					 hSocket   := hSocket,
+					 cbLen     := nSendLen,
+					 pSrc      := ADR(nSendLen),
+					 bExecute  := TRUE,
+					 tTimeout  := T#5S
 		);
 		IF NOT(fbSocketSend.bBusy) AND NOT(fbSocketSend.bError) THEN
 			nSend := nSend + 1;
@@ -109,11 +113,12 @@ CASE eStateMachine OF
 		END_IF
 	
 		// Function Block
-		fbSocketReceive(hSocket  := hSocket,
-						cbLen    := SIZEOF(nReceiveByte),
-						pDest    := ADR(nReceiveByte),
-						bExecute := TRUE,
-						tTimeout := T#5S
+		fbSocketReceive(sSrvNetId := sSrvNetId,
+						hSocket   := hSocket,
+						cbLen     := SIZEOF(nReceiveByte),
+						pDest     := ADR(nReceiveByte),
+						bExecute  := TRUE,
+						tTimeout  := T#5S
 		);
 		// Await received string
 		IF fbSocketReceive.nRecBytes > 0 AND NOT(fbSocketReceive.bBusy) AND NOT(fbSocketReceive.bError) THEN
@@ -133,7 +138,9 @@ CASE eStateMachine OF
 	
 	CLOSE:
 		//Close the Connection by Function Block
-		fbSocketClose(hSocket := hSocket, bExecute := TRUE);
+		fbSocketClose(sSrvNetId := sSrvNetId,
+					  hSocket := hSocket, 
+					  bExecute := TRUE);
 		IF NOT(fbSocketClose.bBusy) AND NOT(fbSocketClose.bError) THEN
 			nClose := nClose + 1;
 			fbSocketClose(bExecute := FALSE);
