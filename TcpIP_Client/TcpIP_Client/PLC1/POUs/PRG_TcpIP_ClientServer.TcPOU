@@ -34,8 +34,6 @@ VAR
 	// Misc
 	fbTimer 			: TON := (PT := T#5S);
 	tRefreshTimer		: TIME := T#100MS;
-	nSendBytes 			: ARRAY[0..1023] OF BYTE;
-	nReceiveByte		: ARRAY[0..1023] OF BYTE;
 	sSendString 		: STRING(255);
 	sReceiveString		: STRING(80);
 END_VAR
@@ -109,18 +107,13 @@ CASE eStateMachine OF
 		// Function Block
 		fbSocketReceive(sSrvNetId := sSrvNetId,
 						hSocket   := hSocket,
-						cbLen     := SIZEOF(nReceiveByte),
-						pDest     := ADR(nReceiveByte),
+						cbLen     := SIZEOF(sReceiveString),
+						pDest     := ADR(sReceiveString),
 						bExecute  := TRUE,
 						tTimeout  := T#5S
 		);
 		// Await received string
 		IF fbSocketReceive.nRecBytes > 0 AND NOT(fbSocketReceive.bBusy) AND NOT(fbSocketReceive.bError) THEN
-			// Copy byte array into string of chars
-			MEMCPY(destAddr := ADR(sReceiveString),
-				   srcAddr  := ADR(nReceiveByte), 
-				   n        := fbSocketReceive.nRecBytes
-			);	
 			nReceive := nReceive + 1;
 			fbSocketReceive(bExecute := FALSE);
 			eStateMachine := PREP_SEND;
