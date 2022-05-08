@@ -10,8 +10,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     with conn:
         print(f"Connected by {addr}")
         while True:
+            counter = 0
             data = conn.recv(1024)
             if not data:
                 break
-            print("data from client:".encode()+data)
-            conn.sendall(data+",Data back from Server".encode())
+            print("data from client: ".encode()+data)
+            conn.sendall(data+" - Data mirrored back from Server".encode())

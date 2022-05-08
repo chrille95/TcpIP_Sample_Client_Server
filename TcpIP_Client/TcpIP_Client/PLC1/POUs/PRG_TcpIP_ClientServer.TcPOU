@@ -3,6 +3,8 @@
   <POU Name="PRG_TcpIP_ClientServer" Id="{a65e1b9a-9e9c-4da0-a919-b3b2081c154a}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM PRG_TcpIP_ClientServer
 VAR
+	// Python server script - https://realpython.com/python-sockets/ 	
+
 	// State
 	bConnect 			: BOOL;
 	bSend 				: BOOL;
@@ -34,10 +36,8 @@ VAR
 	tRefreshTimer		: TIME := T#100MS;
 	nSendBytes 			: ARRAY[0..1023] OF BYTE;
 	nReceiveByte		: ARRAY[0..1023] OF BYTE;
-	sReceiveString		: STRING;
-	sSendString 		: STRING;
-	nSendLen 			: UDINT;
-	stReceiveString     : STRING;
+	sSendString 		: STRING(255);
+	sReceiveString		: STRING(80);
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -74,18 +74,12 @@ CASE eStateMachine OF
 	
 	SEND:
 		// Send message to Python Server & configure the Sending message
-		sSendString := 'Hello world FROM TwinCAT!';
-		nSendLen := INT_TO_UDINT(LEN(sSendString));
-		// Copy string of chars into byte array
-		MEMCPY(destAddr := ADR(nSendBytes),
-			   srcAddr  := ADR(sSendString),
-			   n		:= nSendLen
-		);
+		sSendString :='Hello world FROM TwinCAT!';
 		// Function Block
 		fbSocketSend(sSrvNetId := sSrvNetId,
 					 hSocket   := hSocket,
-					 cbLen     := nSendLen,
-					 pSrc      := ADR(nSendLen),
+					 cbLen     := INT_TO_UDINT(LEN(sSendString)),
+					 pSrc      := ADR(sSendString),
 					 bExecute  := TRUE,
 					 tTimeout  := T#5S
 		);
@@ -129,7 +123,7 @@ CASE eStateMachine OF
 			);	
 			nReceive := nReceive + 1;
 			fbSocketReceive(bExecute := FALSE);
-			eStateMachine := CLOSE;
+			eStateMachine := PREP_SEND;
 		ELSIF bClose OR fbSocketReceive.bError THEN
 			bClose := FALSE;
 			fbSocketReceive(bExecute := FALSE);
